@@ -1,150 +1,115 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 
-int main(){
-    char *s=(char *)calloc(sizeof(char), 20000);
-    char *t=(char *)calloc(sizeof(char), 20000);
-    
+int main() {
     FILE *fp;
-    int i=0, j=0, k=0, c=0;
-    char f[20], ch;
-    char keywords[32][20]={};
-    
-    printf("Enter file name:");
-    scanf("%s", f);
-    
-    fp=fopen(f, "r");
-    
-    
-    if(fp==NULL)    {
-        printf("File cannot be opened");
+    char ch, word[50];
+    int i = 0, j, k, isKey;
+
+    // Keyword list (as you asked)
+    char key[32][12] = {
+        "auto","break","case","char","const","continue","default","do","double",
+        "else","enum","extern","float","for","goto","if","int","long","register",
+        "return","short","signed","sizeof","static","struct","switch","typedef",
+        "union","unsigned","void","volatile","while"
+    };
+
+    fp = fopen("input.txt", "r");   // keep fixed file (simple)
+
+    if (fp == NULL) {
+        printf("File not found\n");
         return 0;
     }
-    
-    while(ch=fgetc(fp)!=EOF){
-        *(s+i)=ch;
-        i++;
-    }
-    
 
-    *(s+i)='\0';
-    printf("-----Analysis------");
-    i=0;
-    
-    while(*(s+i)!='\0'){
-        
-        
-        // Preprocessor directive
-        if(*(s+i)=='#'){
-            i++;
-            while(*(s+i)!='\n'){
-                printf("%c", *(s+i));
+    printf("---- Analysis ----\n");
+
+    while ((ch = fgetc(fp)) != EOF) {
+
+        // Identifier / Keyword
+        if (isalpha(ch) || ch == '_') {
+            i = 0;
+            word[i++] = ch;
+
+            while (isalnum(ch = fgetc(fp)) || ch == '_') {
+                word[i++] = ch;
             }
-            printf("-> is a preprocessor directive");
-        }
-        
-        
-        //Keyword, function or identifier
-        else if(isalpha(*(s+i)) || *(s+i)=='_'){
-            j=0;
-            *(t+j)=*(s=i);
-            while((isalnum(*(s+i))||*(s+i)=='_')&&*(s+i)!='\0'){
-                *(t+j)=*(s+i);
-            }
-            *(t+j)='\0';
-            
-            for(k=0;k<32;k++){
-                if(strcmp(*(t+j), keywords[k])==0){
-                    c=1;
+            word[i] = '\0';
+
+            // Check keyword
+            isKey = 0;
+            for (k = 0; k < 32; k++) {
+                if (strcmp(word, key[k]) == 0) {
+                    isKey = 1;
+                    break;
                 }
             }
-            if(c==1){
-                printf("%s is a keyword", *(t+j));
-            }
-            else if(*(s+i)=='('){
-                printf("%s is a function", *(t+j));
-            }else{
-                printf("%s is a identifier", *(t+j));
-            }
+
+            if (isKey)
+                printf("%s -> Keyword\n", word);
+            else if (ch == '(')
+                printf("%s -> Function\n", word);
+            else
+                printf("%s -> Identifier\n", word);
+
+            ungetc(ch, fp);
         }
-        
-        
-        
-        //Strings
-        else if(*(s+i)=='"'){
-            i++;
-            while(*(s+i)!='"'){
-                printf("%c", *(s+i));
+
+        // Number
+        else if (isdigit(ch)) {
+            printf("%c", ch);
+            while (isdigit(ch = fgetc(fp)) || ch == '.') {
+                printf("%c", ch);
             }
-            printf(" is a string");
+            printf(" -> Number\n");
+            ungetc(ch, fp);
         }
-        
-        
-        
-        //Comments
-        else if(*(s+i)=='/' && (*(s+i+1)=='/')||(*(s+i+1)=='*')){
-            i++;
-            if(*(s+i)=='/'){
-                i++;
-                while(*(s+i)!='\n'){
-                    printf("%c", *(s+i));
+
+        // Operator
+        else if (strchr("+-*/%=<>!&|", ch)) {
+            printf("%c -> Operator\n", ch);
+        }
+
+        // Special symbols
+        else if (strchr("(){}[]", ch)) {
+            printf("%c -> Special Symbol\n", ch);
+        }
+
+        // String
+        else if (ch == '"') {
+            printf("\"");
+            while ((ch = fgetc(fp)) != '"') {
+                printf("%c", ch);
+            }
+            printf("\" -> String\n");
+        }
+
+        // Comments
+        else if (ch == '/') {
+            char next = fgetc(fp);
+
+            if (next == '/') {
+                while ((ch = fgetc(fp)) != '\n') {
+                    printf("%c", ch);
                 }
-            }else{
-                i++;
-                while(*(s+i)=='*' && *(s+i+1)=='/'){
-                    printf("%c", *(s=i));
-                }
+                printf(" -> Comment\n");
             }
-            i+=2;
-            printf(" is a comment");
-        }
-        
-        
-        //Number
-        else if(isdigit(*(s+i))){
-            while(isdigit(*(s+i))||*(s+i)=='.'){
-                printf("%c", *(s+i));
+            else if (next == '*') {
+                while (!((ch = fgetc(fp)) == '*' && (ch = fgetc(fp)) == '/'));
+                printf("Multi-line Comment\n");
             }
-            i++;
-            printf(" is a number");
+            else {
+                printf("/ -> Operator\n");
+                ungetc(next, fp);
+            }
         }
-        
-        
-        
-        //Spl symbol
-        else if(strchr("[]{}()", *(s+i))){
-            printf("%c is a special symbol", *(s+i));
-            i++;
-        }
-        
-        
-        
-        //Operator
-        else if(strchr("+-*/%=<>!&|", *(s+i))){
-            printf("%c is an operator", *(s+i));
-            i++;
-        }
-        
-        
-        
-        //Terminator
-        else if(*(s+i)==';'){
-            printf("%c is terminator", *(s+i));
-            i++;
-        }
-        
-        
-        
-        else{
-            i++;
+
+        // Terminator
+        else if (ch == ';') {
+            printf("; -> Terminator\n");
         }
     }
-    
+
     fclose(fp);
     return 0;
-    
-    
-    
 }
